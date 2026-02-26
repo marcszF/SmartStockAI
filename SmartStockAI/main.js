@@ -1,4 +1,4 @@
-if(SmartStockAI === undefined) var SmartStockAI = {};
+if (typeof SmartStockAI === 'undefined') var SmartStockAI = {};
 
 SmartStockAI.name = "Smart Stock AI";
 SmartStockAI.version = "5.1";
@@ -15,7 +15,11 @@ SmartStockAI.stats = {
     invested: 0,
     sold: 0,
     profit: 0,
-    trades: 0
+    trades: 0,
+    winningTrades: 0,
+    losingTrades: 0,
+    bestTrade: 0,
+    worstTrade: 0
 };
 
 SmartStockAI.state = {
@@ -84,8 +88,19 @@ str += '</div>';
 str += m.Header('Statistics');
 
 str += '<div class="listing">';
+let closedTrades = SmartStockAI.stats.winningTrades + SmartStockAI.stats.losingTrades;
+let avgPerTrade = closedTrades > 0 ? SmartStockAI.stats.profit / closedTrades : 0;
+let roi = SmartStockAI.stats.invested > 0 ? (SmartStockAI.stats.profit / SmartStockAI.stats.invested) * 100 : 0;
+let winRate = closedTrades > 0 ? (SmartStockAI.stats.winningTrades / closedTrades) * 100 : 0;
 str += 'Trades: '+SmartStockAI.stats.trades+'<br>';
-str += 'Profit: '+Beautify(SmartStockAI.stats.profit);
+str += 'Invested: '+Beautify(SmartStockAI.stats.invested)+'<br>';
+str += 'Sold: '+Beautify(SmartStockAI.stats.sold)+'<br>';
+str += 'Profit: '+Beautify(SmartStockAI.stats.profit)+'<br>';
+str += 'ROI: '+Beautify(roi,2)+'%<br>';
+str += 'Win rate: '+Beautify(winRate,2)+'% ('+SmartStockAI.stats.winningTrades+'/'+closedTrades+')<br>';
+str += 'Avg P/L per closed trade: '+Beautify(avgPerTrade)+'<br>';
+str += 'Best trade: '+Beautify(SmartStockAI.stats.bestTrade)+'<br>';
+str += 'Worst trade: '+Beautify(SmartStockAI.stats.worstTrade);
 str += '</div>';
 
 return str;
@@ -108,9 +123,19 @@ stats:SmartStockAI.stats
 };
 
 SmartStockAI.load = function(str){
-let data = JSON.parse(str);
-if(data.config) SmartStockAI.config=data.config;
-if(data.stats) SmartStockAI.stats=data.stats;
+if (!str) return;
+
+let data;
+try {
+data = JSON.parse(str);
+} catch (e) {
+return;
+}
+
+if (data && data.config) SmartStockAI.config = data.config;
+if (data && data.stats) {
+SmartStockAI.stats = Object.assign({}, SmartStockAI.stats, data.stats);
+}
 };
 
 SmartStockAI.ReplaceMarket = function(){
@@ -171,9 +196,15 @@ SmartStockAI.state.entry[i]=price;
 
 if(g.stock>0 && (rangePos>0.85 || z>cfg.sellZ)){
 let value=g.stock*price;
+let entryPrice=(SmartStockAI.state.entry[i]||price);
+let tradeProfit=value-entryPrice*g.stock;
 M.sellGood(i,g.stock);
 SmartStockAI.stats.sold+=value;
-SmartStockAI.stats.profit+=value-(SmartStockAI.state.entry[i]||price)*g.stock;
+SmartStockAI.stats.profit+=tradeProfit;
+if(tradeProfit>=0) SmartStockAI.stats.winningTrades++;
+else SmartStockAI.stats.losingTrades++;
+if(tradeProfit>SmartStockAI.stats.bestTrade) SmartStockAI.stats.bestTrade=tradeProfit;
+if(tradeProfit<SmartStockAI.stats.worstTrade) SmartStockAI.stats.worstTrade=tradeProfit;
 SmartStockAI.stats.trades++;
 delete SmartStockAI.state.entry[i];
 }
