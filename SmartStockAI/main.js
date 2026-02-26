@@ -29,9 +29,9 @@ SmartStockAI.state = {
 };
 
 SmartStockAI.profiles = {
-    ultra:{risk:0.20,buyZ:-1.2,sellZ:1.3,stop:0.10},
-    balanced:{risk:0.15,buyZ:-1.0,sellZ:1.2,stop:0.12},
-    aggressive:{risk:0.25,buyZ:-0.8,sellZ:1.0,stop:0.18}
+    ultra:{risk:0.20,buyZ:-0.7,sellZ:0.9,stop:0.10},
+    balanced:{risk:0.15,buyZ:-0.5,sellZ:0.8,stop:0.12},
+    aggressive:{risk:0.25,buyZ:-0.3,sellZ:0.6,stop:0.18}
 };
 
 SmartStockAI.init = function(){
@@ -133,6 +133,7 @@ return;
 }
 
 if (data && data.config) SmartStockAI.config = data.config;
+if (!SmartStockAI.profiles[SmartStockAI.config.profile]) SmartStockAI.config.profile = 'balanced';
 if (data && data.stats) {
 SmartStockAI.stats = Object.assign({}, SmartStockAI.stats, data.stats);
 }
@@ -184,21 +185,35 @@ let rangePos=(price-min)/(max-min);
 let maxInvest=Game.cookies*cfg.risk;
 let invested=g.stock*price;
 
-if(rangePos<0.30 && z<cfg.buyZ && invested<maxInvest){
+let canAnalyze = SmartStockAI.state.history[i].length >= 8;
+let buySignal = canAnalyze && (rangePos < 0.45 || z < cfg.buyZ);
+let entryPrice = SmartStockAI.state.entry[i] || price;
+let stopSignal = g.stock > 0 && price <= entryPrice * (1 - cfg.stop);
+let sellSignal = g.stock > 0 && (stopSignal || rangePos > 0.75 || z > cfg.sellZ);
+
+if(buySignal && invested<maxInvest){
 let amount=Math.floor((maxInvest-invested)/price);
 if(amount>0){
+let prevStock = g.stock;
 M.buyGood(i,amount);
-SmartStockAI.stats.invested+=amount*price;
+let bought = g.stock - prevStock;
+if(bought>0){
+let prevEntry = SmartStockAI.state.entry[i] || price;
+SmartStockAI.state.entry[i] = ((prevEntry * prevStock) + (price * bought)) / (prevStock + bought);
+SmartStockAI.stats.invested+=bought*price;
 SmartStockAI.stats.trades++;
-SmartStockAI.state.entry[i]=price;
+}
 }
 }
 
-if(g.stock>0 && (rangePos>0.85 || z>cfg.sellZ)){
-let value=g.stock*price;
-let entryPrice=(SmartStockAI.state.entry[i]||price);
-let tradeProfit=value-entryPrice*g.stock;
-M.sellGood(i,g.stock);
+if(sellSignal){
+let stockToSell=g.stock;
+let avgEntry=(SmartStockAI.state.entry[i]||price);
+M.sellGood(i,stockToSell);
+let soldAmount = stockToSell - g.stock;
+if(soldAmount>0){
+let value=soldAmount*price;
+let tradeProfit=value-avgEntry*soldAmount;
 SmartStockAI.stats.sold+=value;
 SmartStockAI.stats.profit+=tradeProfit;
 if(tradeProfit>=0) SmartStockAI.stats.winningTrades++;
@@ -206,7 +221,8 @@ else SmartStockAI.stats.losingTrades++;
 if(tradeProfit>SmartStockAI.stats.bestTrade) SmartStockAI.stats.bestTrade=tradeProfit;
 if(tradeProfit<SmartStockAI.stats.worstTrade) SmartStockAI.stats.worstTrade=tradeProfit;
 SmartStockAI.stats.trades++;
-delete SmartStockAI.state.entry[i];
+if(g.stock<=0) delete SmartStockAI.state.entry[i];
+}
 }
 }
 };
