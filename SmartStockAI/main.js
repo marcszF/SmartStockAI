@@ -1,7 +1,7 @@
 if (typeof SmartStockAI === 'undefined') var SmartStockAI = {};
 
 SmartStockAI.name = "Smart Stock AI";
-SmartStockAI.version = "5.2";
+SmartStockAI.version = "5.3";
 SmartStockAI.GameVersion = "2.053";
 
 SmartStockAI.launch = function(){
@@ -9,7 +9,9 @@ SmartStockAI.launch = function(){
 SmartStockAI.config = {
     enabled: 1,
     profile: "ultra",
-    useInsugar: 1
+    useInsugar: 1,
+    minBrokers: 72,
+    bankThreshold: 0.05
 };
 
 SmartStockAI.stats = {
@@ -20,7 +22,9 @@ SmartStockAI.stats = {
     winningTrades: 0,
     losingTrades: 0,
     bestTrade: 0,
-    worstTrade: 0
+    worstTrade: 0,
+    blockedByBrokers: 0,
+    blockedByFunds: 0
 };
 
 SmartStockAI.state = {
@@ -94,6 +98,17 @@ str += m.ActionButton("SmartStockAI.setProfile('ultra'); Game.UpdateMenu();","UL
 str += m.ActionButton("SmartStockAI.setProfile('balanced'); Game.UpdateMenu();","Balanceado");
 str += m.ActionButton("SmartStockAI.setProfile('aggressive'); Game.UpdateMenu();","Agressivo");
 str += '<br><br>Atual: <b>'+SmartStockAI.config.profile+'</b>';
+str += '<br>Min brokers: <b>'+SmartStockAI.config.minBrokers+'</b>';
+str += '<br>Cookie reserve: <b>'+Beautify(SmartStockAI.config.bankThreshold*100,1)+'%</b>';
+str += '</div>';
+
+str += '<div class="listing">';
+str += m.ActionButton("SmartStockAI.setMinBrokers(24); Game.UpdateMenu();","Brokers 24");
+str += m.ActionButton("SmartStockAI.setMinBrokers(48); Game.UpdateMenu();","Brokers 48");
+str += m.ActionButton("SmartStockAI.setMinBrokers(72); Game.UpdateMenu();","Brokers 72");
+str += m.ActionButton("SmartStockAI.setBankThreshold(0.01); Game.UpdateMenu();","Reserve 1%");
+str += m.ActionButton("SmartStockAI.setBankThreshold(0.05); Game.UpdateMenu();","Reserve 5%");
+str += m.ActionButton("SmartStockAI.setBankThreshold(0.10); Game.UpdateMenu();","Reserve 10%");
 str += '</div>';
 
 str += m.Header('Statistics');
@@ -111,7 +126,9 @@ str += 'ROI: '+Beautify(roi,2)+'%<br>';
 str += 'Win rate: '+Beautify(winRate,2)+'% ('+SmartStockAI.stats.winningTrades+'/'+closedTrades+')<br>';
 str += 'Avg P/L per closed trade: '+Beautify(avgPerTrade)+'<br>';
 str += 'Best trade: '+Beautify(SmartStockAI.stats.bestTrade)+'<br>';
-str += 'Worst trade: '+Beautify(SmartStockAI.stats.worstTrade);
+str += 'Worst trade: '+Beautify(SmartStockAI.stats.worstTrade)+'<br>';
+str += 'Blocked by brokers: '+Beautify(SmartStockAI.stats.blockedByBrokers,0)+' ticks<br>';
+str += 'Blocked by reserve: '+Beautify(SmartStockAI.stats.blockedByFunds,0)+' ticks';
 str += '</div>';
 
 return str;
@@ -124,6 +141,14 @@ l(button).innerHTML = SmartStockAI.config[prefName]?on:off;
 
 SmartStockAI.setProfile = function(p){
 SmartStockAI.config.profile = p;
+};
+
+SmartStockAI.setMinBrokers = function(n){
+SmartStockAI.config.minBrokers = Math.max(0, Math.min(162, Math.floor(n)));
+};
+
+SmartStockAI.setBankThreshold = function(v){
+SmartStockAI.config.bankThreshold = Math.max(0, Math.min(0.9, v));
 };
 
 SmartStockAI.ensureInsugar = function(){
@@ -151,8 +176,10 @@ data = JSON.parse(str);
 return;
 }
 
-if (data && data.config) SmartStockAI.config = data.config;
+if (data && data.config) SmartStockAI.config = Object.assign({}, SmartStockAI.config, data.config);
 if (typeof SmartStockAI.config.useInsugar === 'undefined') SmartStockAI.config.useInsugar = 1;
+if (typeof SmartStockAI.config.minBrokers === 'undefined') SmartStockAI.config.minBrokers = 72;
+if (typeof SmartStockAI.config.bankThreshold === 'undefined') SmartStockAI.config.bankThreshold = 0.05;
 if (!SmartStockAI.profiles[SmartStockAI.config.profile]) SmartStockAI.config.profile = 'balanced';
 if (data && data.stats) {
 SmartStockAI.stats = Object.assign({}, SmartStockAI.stats, data.stats);
@@ -177,6 +204,12 @@ const M = Game.Objects["Bank"].minigame;
 const cfg = SmartStockAI.profiles[SmartStockAI.config.profile];
 const bankLevel = Game.Objects["Bank"].level;
 const hasInsugar = SmartStockAI.config.useInsugar && typeof window !== 'undefined' && window.InsugarTrading;
+const brokers = typeof M.brokers === 'number' ? M.brokers : 0;
+const hasMinBrokers = brokers >= SmartStockAI.config.minBrokers;
+const minCookiesToKeep = Game.cookies * SmartStockAI.config.bankThreshold;
+const tradableCookies = Math.max(0, Game.cookies - minCookiesToKeep);
+if (!hasMinBrokers) SmartStockAI.stats.blockedByBrokers++;
+if (tradableCookies <= 0) SmartStockAI.stats.blockedByFunds++;
 
 for(let i=0;i<M.goodsById.length;i++){
 
@@ -206,7 +239,7 @@ SmartStockAI.state.ema[i]=price*k+SmartStockAI.state.ema[i]*(1-k);
 let z=std>0?(price-SmartStockAI.state.ema[i])/std:0;
 let rangePos=(price-min)/(max-min);
 
-let maxInvest=Game.cookies*cfg.risk;
+let maxInvest=tradableCookies*cfg.risk;
 let invested=g.stock*price;
 
 let canAnalyze = SmartStockAI.state.history[i].length >= 8;
@@ -223,7 +256,7 @@ sellSignal = g.stock > 0 && (sellSignal || q >= 0.82);
 }
 }
 
-if(buySignal && invested<maxInvest){
+if(buySignal && hasMinBrokers && invested<maxInvest){
 let amount=Math.floor((maxInvest-invested)/price);
 if(amount>0){
 let prevStock = g.stock;
