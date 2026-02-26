@@ -3,7 +3,7 @@
   "ID": "SmartStockAI",
   "Author": "Marcsz",
   "Description": "Ultra AI automated trading for Stock Market with EMA, volatility detection and persistent statistics.",
-  "ModVersion": 5.0,
+  "ModVersion": 5.2,
   "GameVersion": 253,
   "Date": "26/02/2026",
   "Dependencies": ["CCSE"],

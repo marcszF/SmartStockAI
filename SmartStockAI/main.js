@@ -1,14 +1,15 @@
 if (typeof SmartStockAI === 'undefined') var SmartStockAI = {};
 
 SmartStockAI.name = "Smart Stock AI";
-SmartStockAI.version = "5.1";
+SmartStockAI.version = "5.2";
 SmartStockAI.GameVersion = "2.053";
 
 SmartStockAI.launch = function(){
 
 SmartStockAI.config = {
     enabled: 1,
-    profile: "ultra"
+    profile: "ultra",
+    useInsugar: 1
 };
 
 SmartStockAI.stats = {
@@ -25,7 +26,8 @@ SmartStockAI.stats = {
 SmartStockAI.state = {
     history:{},
     ema:{},
-    entry:{}
+    entry:{},
+    insugarRequested: 0
 };
 
 SmartStockAI.profiles = {
@@ -39,6 +41,8 @@ SmartStockAI.init = function(){
     SmartStockAI.isLoaded = 1;
 
     SmartStockAI.ReplaceMenu();
+
+    SmartStockAI.ensureInsugar();
 
     CCSE.MinigameReplacer(SmartStockAI.ReplaceMarket,"Bank");
 
@@ -72,6 +76,13 @@ SmartStockAI.config,
 'enabled',
 'SSA_enabled',
 'ON','OFF',
+'SmartStockAI.Toggle'
+);
+str += m.ToggleButton(
+SmartStockAI.config,
+'useInsugar',
+'SSA_insugar_enabled',
+'Insugar ON','Insugar OFF',
 'SmartStockAI.Toggle'
 );
 str += '</div>';
@@ -115,6 +126,14 @@ SmartStockAI.setProfile = function(p){
 SmartStockAI.config.profile = p;
 };
 
+SmartStockAI.ensureInsugar = function(){
+if(!SmartStockAI.config.useInsugar) return;
+if(typeof window !== 'undefined' && window.InsugarTrading) return;
+if(SmartStockAI.state.insugarRequested) return;
+SmartStockAI.state.insugarRequested = 1;
+Game.LoadMod('https://staticvariablejames.github.io/InsugarTrading/InsugarTrading.js');
+};
+
 SmartStockAI.save = function(){
 return JSON.stringify({
 config:SmartStockAI.config,
@@ -133,6 +152,7 @@ return;
 }
 
 if (data && data.config) SmartStockAI.config = data.config;
+if (typeof SmartStockAI.config.useInsugar === 'undefined') SmartStockAI.config.useInsugar = 1;
 if (!SmartStockAI.profiles[SmartStockAI.config.profile]) SmartStockAI.config.profile = 'balanced';
 if (data && data.stats) {
 SmartStockAI.stats = Object.assign({}, SmartStockAI.stats, data.stats);
@@ -151,8 +171,12 @@ SmartStockAI.logic = function(){
 
 if(!SmartStockAI.config.enabled) return;
 
+SmartStockAI.ensureInsugar();
+
 const M = Game.Objects["Bank"].minigame;
 const cfg = SmartStockAI.profiles[SmartStockAI.config.profile];
+const bankLevel = Game.Objects["Bank"].level;
+const hasInsugar = SmartStockAI.config.useInsugar && typeof window !== 'undefined' && window.InsugarTrading;
 
 for(let i=0;i<M.goodsById.length;i++){
 
@@ -190,6 +214,14 @@ let buySignal = canAnalyze && (rangePos < 0.45 || z < cfg.buyZ);
 let entryPrice = SmartStockAI.state.entry[i] || price;
 let stopSignal = g.stock > 0 && price <= entryPrice * (1 - cfg.stop);
 let sellSignal = g.stock > 0 && (stopSignal || rangePos > 0.75 || z > cfg.sellZ);
+
+if (hasInsugar) {
+let q = window.InsugarTrading.inverseQuantile(bankLevel, i, price);
+if (q !== null) {
+buySignal = canAnalyze && (buySignal || q <= 0.18);
+sellSignal = g.stock > 0 && (sellSignal || q >= 0.82);
+}
+}
 
 if(buySignal && invested<maxInvest){
 let amount=Math.floor((maxInvest-invested)/price);
