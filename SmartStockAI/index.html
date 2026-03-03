@@ -8,29 +8,32 @@
 </head>
 <body>
   <main class="layout">
-    <section class="panel hero">
-      <h1>⚔️ RPG Infinity Clicker</h1>
-      <p>Cada run gera skills diferentes para builds únicas.</p>
+    <section class="panel hero-panel">
+      <header class="panel-header">
+        <h1>⚔️ RPG Infinity Clicker</h1>
+        <p>Cada run tem combinações únicas de build, skills e sinergias.</p>
+      </header>
 
       <div class="stats-grid">
-        <div><span>Ouro</span><strong id="gold">0</strong></div>
-        <div><span>XP</span><strong id="xp">0</strong></div>
-        <div><span>Nível</span><strong id="level">1</strong></div>
-        <div><span>Essência</span><strong id="essence">0</strong></div>
+        <article class="stat-card"><span>Ouro</span><strong id="gold">0</strong></article>
+        <article class="stat-card"><span>XP</span><strong id="xp">0</strong></article>
+        <article class="stat-card"><span>Nível</span><strong id="level">1</strong></article>
+        <article class="stat-card"><span>Essência</span><strong id="essence">0</strong></article>
       </div>
 
-      <div class="combat-card">
+      <article class="combat-card">
         <h2 id="enemyName">Slime Errante</h2>
         <p>Zona <span id="zone">1</span></p>
         <div class="bar"><div id="enemyHpBar"></div></div>
         <p><span id="enemyHp">10</span> / <span id="enemyMaxHp">10</span> HP</p>
-        <div class="dmg-row">
-          <button id="attackBtn">Atacar</button>
+
+        <div class="combat-row">
+          <button id="attackBtn" class="primary">Atacar</button>
           <div><small>Dano clique</small><strong id="clickDamage">1</strong></div>
           <div><small>DPS auto</small><strong id="autoDps">0</strong></div>
           <div><small>Crítico</small><strong id="critChance">0%</strong></div>
         </div>
-      </div>
+      </article>
 
       <div class="actions">
         <button id="nextZoneBtn">Próxima zona</button>
@@ -39,9 +42,9 @@
       </div>
     </section>
 
-    <section class="panel upgrades">
+    <section class="panel systems-panel">
       <h2>🧭 Build</h2>
-      <div class="build-box">
+      <article class="block">
         <p>Classe: <strong id="buildClass">Aventureiro</strong></p>
         <p>Talentos: <strong id="talentPoints">0</strong> | Skills: <strong id="skillPoints">0</strong></p>
         <div class="actions">
@@ -49,56 +52,56 @@
           <button id="classRogue">Ladino</button>
           <button id="classMage">Mago</button>
         </div>
-      </div>
+      </article>
 
-      <h2>🧠 Talentos</h2>
-      <div id="talentList" class="upgrade-list"></div>
+      <h3>🧠 Talentos</h3>
+      <div id="talentList" class="list"></div>
 
-      <h2>✨ Skills Procedurais</h2>
-      <p>Seed da run: <span id="runSeed">-</span> | Equipadas: <span id="equippedCount">0</span>/4</p>
+      <h3>✨ Skills Procedurais</h3>
+      <p class="muted">Seed: <span id="runSeed">-</span> • Equipadas: <span id="equippedCount">0</span>/4</p>
       <div class="actions">
         <button id="rerollSkillsBtn">Rerollar deck (-3 essência)</button>
       </div>
-      <div id="equippedSkills" class="upgrade-list"></div>
-      <div id="skillList" class="upgrade-list"></div>
+      <div id="equippedSkills" class="list"></div>
+      <div id="skillList" class="list"></div>
 
-      <h3>🔬 Síntese de Skills</h3>
+      <h4>🔬 Síntese</h4>
       <div class="mix-row">
         <select id="mixA"></select>
         <select id="mixB"></select>
         <button id="mixBtn">Misturar (-120 ouro)</button>
       </div>
 
-      <h2>🤖 Automação</h2>
-      <div id="automationList" class="upgrade-list"></div>
+      <h3>🤖 Automação</h3>
+      <div id="automationList" class="list"></div>
 
-      <h2>🛠️ Upgrades</h2>
-      <div id="upgradeList" class="upgrade-list"></div>
+      <h3>🛠️ Upgrades</h3>
+      <div id="upgradeList" class="list"></div>
 
-      <h2>🌌 Meta Upgrades</h2>
-      <div id="metaList" class="upgrade-list"></div>
+      <h3>🌌 Meta</h3>
+      <div id="metaList" class="list"></div>
 
-      <h2>🎮 Minigames</h2>
-      <div class="mini-grid">
+      <h3>🎮 Minigames</h3>
+      <div class="actions">
         <button id="miniCritBtn">Reflexo Crítico</button>
         <button id="miniChestBtn">Caça ao Baú</button>
       </div>
-      <p id="minigameText">Bônus temporários e controlados.</p>
+      <p id="minigameText" class="muted">Bônus temporários e balanceados.</p>
 
-      <h2>🐾 Pet Arcano</h2>
-      <div class="pet-card">
+      <h3>🐾 Pet Arcano</h3>
+      <article class="block">
         <p><strong id="petName">Poring</strong> — Nível <span id="petLevel">1</span></p>
-        <p>Fome: <span id="petHunger">100</span> | Humor: <span id="petMood">100</span> | Energia: <span id="petEnergy">100</span></p>
-        <p>Bônus: <span id="petBonus">Nenhum</span></p>
+        <p>Fome <span id="petHunger">100</span> • Humor <span id="petMood">100</span> • Energia <span id="petEnergy">100</span></p>
+        <p>Bônus <span id="petBonus">Nenhum</span></p>
         <div class="actions">
-          <button id="petFeedBtn">Alimentar (-25 ouro)</button>
-          <button id="petPlayBtn">Brincar (-20 ouro)</button>
+          <button id="petFeedBtn">Alimentar (-25)</button>
+          <button id="petPlayBtn">Brincar (-20)</button>
           <button id="petRestBtn">Descansar</button>
         </div>
-      </div>
+      </article>
 
-      <h2>📜 Missão</h2>
-      <p id="missionText">-</p>
+      <h3>📜 Missão</h3>
+      <p id="missionText" class="muted">-</p>
     </section>
   </main>
 
