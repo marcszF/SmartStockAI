@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG Infinity Clicker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="panel hero">
+      <h1>⚔️ RPG Infinity Clicker</h1>
+      <p>Derrote monstros, evolua e ascenda infinitamente.</p>
+
+      <div class="stats-grid">
+        <div><span>Ouro</span><strong id="gold">0</strong></div>
+        <div><span>XP</span><strong id="xp">0</strong></div>
+        <div><span>Nível</span><strong id="level">1</strong></div>
+        <div><span>Essência</span><strong id="essence">0</strong></div>
+      </div>
+
+      <div class="combat-card">
+        <h2 id="enemyName">Slime Errante</h2>
+        <p>Zona <span id="zone">1</span></p>
+        <div class="bar"><div id="enemyHpBar"></div></div>
+        <p><span id="enemyHp">10</span> / <span id="enemyMaxHp">10</span> HP</p>
+        <div class="dmg-row">
+          <button id="attackBtn">Atacar</button>
+          <div>
+            <small>Dano por clique</small>
+            <strong id="clickDamage">1</strong>
+          </div>
+          <div>
+            <small>DPS automático</small>
+            <strong id="autoDps">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="nextZoneBtn">Próxima zona</button>
+        <button id="ascendBtn">Ascender</button>
+        <button id="resetBtn" class="danger">Resetar save</button>
+      </div>
+    </section>
+
+    <section class="panel upgrades">
+      <h2>🛠️ Upgrades</h2>
+      <div id="upgradeList" class="upgrade-list"></div>
+
+      <h2>🌌 Meta Upgrades (Essência)</h2>
+      <div id="metaList" class="upgrade-list"></div>
+
+      <h2>📜 Missão do momento</h2>
+      <p id="missionText">-</p>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>

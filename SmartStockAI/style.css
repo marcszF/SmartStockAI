@@ -1,0 +1,111 @@
+:root {
+  --bg: #11131a;
+  --panel: #1a1f2b;
+  --panel-2: #21283a;
+  --text: #f5f7ff;
+  --muted: #a6b0cc;
+  --accent: #76e4f7;
+  --good: #7df58f;
+  --danger: #ff6e7a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: radial-gradient(circle at top, #1b2130, var(--bg));
+  color: var(--text);
+}
+
+.layout {
+  width: min(1200px, 95vw);
+  margin: 1.25rem auto;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1.1fr 0.9fr;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid #2c3652;
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: .6rem;
+  margin: 1rem 0;
+}
+
+.stats-grid div {
+  background: #121726;
+  border: 1px solid #2a3350;
+  border-radius: 10px;
+  padding: .65rem;
+}
+
+.stats-grid span { display: block; color: var(--muted); font-size: .8rem; }
+.stats-grid strong { font-size: 1.15rem; }
+
+.combat-card {
+  margin-top: 1rem;
+  background: #111726;
+  border: 1px solid #2f3a58;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.bar {
+  width: 100%;
+  height: 14px;
+  background: #283149;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#enemyHpBar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #f857a6, #ff5858);
+  transition: width .18s ease;
+}
+
+button {
+  border: 1px solid #2f4773;
+  color: var(--text);
+  background: #1d2a44;
+  border-radius: 10px;
+  padding: .55rem .8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.1); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.dmg-row { display: flex; gap: .9rem; align-items: center; margin-top: .9rem; }
+.actions { display: flex; gap: .55rem; margin-top: 1rem; flex-wrap: wrap; }
+.danger { border-color: #80303b; background: #4a1f2b; }
+
+.upgrade-list { display: grid; gap: .5rem; }
+.up-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .6rem;
+  align-items: center;
+  background: #131a2b;
+  border: 1px solid #2a3658;
+  border-radius: 10px;
+  padding: .65rem;
+}
+
+.up-item small { display: block; color: var(--muted); }
+.up-item .lvl { color: var(--good); font-size: .8rem; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(90px, 1fr)); }
+}
