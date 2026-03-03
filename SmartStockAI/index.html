@@ -21,6 +21,18 @@
         <article class="stat-card"><span>Essência</span><strong id="essence">0</strong></article>
       </div>
 
+      <article class="block hud-boost">
+        <div class="hud-row">
+          <div><small>Combo de Kills</small><strong id="killStreak">x1</strong></div>
+          <div><small>Bônus combo</small><strong id="streakBonus">+0%</strong></div>
+          <div><small>Classe ativa</small><strong id="classAura">Aventureiro</strong></div>
+        </div>
+        <div class="meter-label"><span>Progresso de XP</span><span id="xpPct">0%</span></div>
+        <div class="bar thin"><div id="xpBar"></div></div>
+        <div class="meter-label"><span>Progresso da missão</span><span id="missionPct">0%</span></div>
+        <div class="bar thin"><div id="missionBar"></div></div>
+      </article>
+
       <article class="combat-card">
         <h2 id="enemyName">Slime Errante</h2>
         <p>Zona <span id="zone">1</span></p>
@@ -49,6 +61,11 @@
           <button id="autoClickerSlower">- Velocidade</button>
           <button id="autoClickerFaster">+ Velocidade</button>
         </div>
+      </article>
+
+      <article class="block">
+        <p><strong>💎 Feed de Recompensas</strong></p>
+        <div id="rewardFeed" class="reward-feed"></div>
       </article>
     </section>
 

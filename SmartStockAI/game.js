@@ -26,7 +26,8 @@ const BALANCE = {
   autoClickerMaxCps: 30,
   autoTickMs: 100,
   saveTickMs: 4000,
-  fullRenderIntervalMs: 900
+  fullRenderIntervalMs: 900,
+  streakTimeoutSec: 4
 };
 
 const baseState = {
@@ -48,6 +49,8 @@ const baseState = {
   automation: { autoBuyer: 0, autoClimber: 0, lootDrone: 0 },
   pet: { name: "Poring", level: 1, xp: 0, hunger: 100, mood: 100, energy: 100 },
   minigameBuffs: { critUntil: 0, chestUntil: 0 },
+  streak: { count: 0, timer: 0 },
+  rewardFeed: [],
   autoClicker: { enabled: false, cps: 6, acc: 0 },
   skills: { runSeed: 0, rerolls: 0, deck: [], learned: [], equipped: [] },
   enemy: { name: "", hp: 10, maxHp: 10 },
@@ -195,6 +198,16 @@ function activeSkillMods() {
   return out;
 }
 
+
+function pushReward(text) {
+  state.rewardFeed.unshift({ text, at: Date.now() });
+  state.rewardFeed = state.rewardFeed.slice(0, 6);
+}
+
+function streakBonusMultiplier() {
+  return 1 + Math.min(0.45, state.streak.count * 0.015);
+}
+
 function calcEnemyMaxHp() {
   const z = state.zone;
   return Math.floor((10 * Math.pow(1.28, z - 1) + z * 4) * (1 + Math.max(0, z - 40) * 0.006));
@@ -207,7 +220,7 @@ function calcKillGold() {
   const metaBonus = 1 + state.meta.economy * 0.12;
   const petBonus = (1 + Math.max(0, state.pet.level - 1) * 0.02) * (1 + sk.petMul);
   const chestBuff = Date.now() < state.minigameBuffs.chestUntil ? 1.15 : 1;
-  return base * minerBonus * metaBonus * petBonus * chestBuff * (1 + sk.goldMul);
+  return base * minerBonus * metaBonus * petBonus * chestBuff * (1 + sk.goldMul) * streakBonusMultiplier();
 }
 
 function calcKillXp() {
@@ -279,6 +292,7 @@ function gainLevelIfNeeded() {
     state.level++;
     if (state.level % 3 === 0) state.talentPoints++;
     if (state.level % 2 === 0) state.skillPoints++;
+    pushReward(`✨ Level Up! Nível ${state.level}`);
   }
 }
 
@@ -292,16 +306,24 @@ function addPetXp(value) {
 
 function onKillEnemy() {
   const sk = activeSkillMods();
-  state.gold += calcKillGold();
-  state.xp += calcKillXp();
+  const goldGain = calcKillGold();
+  const xpGain = calcKillXp();
+  state.gold += goldGain;
+  state.xp += xpGain;
   state.enemiesKilled++;
   state.missionKills++;
+  state.streak.count++;
+  state.streak.timer = BALANCE.streakTimeoutSec;
+
+  if (state.streak.count % 10 === 0) pushReward(`🔥 Combo x${state.streak.count} ativo!`);
 
   addPetXp(2);
   gainLevelIfNeeded();
 
   if (state.missionKills >= state.missionTarget) {
-    state.gold += state.missionReward * (1 + sk.missionMul);
+    const missionGold = state.missionReward * (1 + sk.missionMul);
+    state.gold += missionGold;
+    pushReward(`📜 Missão concluída! +${fmt(missionGold)} ouro`);
     state.missionKills = 0;
     state.missionTarget = Math.floor(state.missionTarget * 1.2);
     state.missionReward = Math.floor(state.missionReward * 1.4);
@@ -311,6 +333,7 @@ function onKillEnemy() {
     state.zone++;
   }
 
+  pushReward(`🪙 +${fmt(goldGain)} ouro • +${fmt(xpGain)} XP`);
   spawnEnemy();
 }
 
@@ -323,6 +346,7 @@ function learnSkill(id) {
   if (state.skillPoints <= 0 || state.skills.learned.includes(id)) return;
   state.skillPoints--;
   state.skills.learned.push(id);
+  pushReward("📚 Nova skill aprendida");
   render();
 }
 
@@ -337,6 +361,7 @@ function equipSkill(id) {
 
   if (state.skills.equipped.length >= BALANCE.maxEquippedSkills) return;
   state.skills.equipped.push(id);
+  pushReward("🧩 Skill equipada");
   render();
 }
 
@@ -371,6 +396,7 @@ function mixSkills() {
 
   state.skills.deck.push(mixedSkill);
   state.skills.learned.push(mixedSkill.id);
+  pushReward("🧪 Skill híbrida criada!");
   render();
 }
 
@@ -398,6 +424,7 @@ function buyUpgrade(key) {
   if (state.gold < cost) return;
   state.gold -= cost;
   upgradeDefs[key].buy();
+  pushReward(`⬆️ ${upgradeDefs[key].label} melhorado`);
   render();
 }
 
@@ -406,6 +433,7 @@ function buyMeta(key) {
   if (state.essence < cost) return;
   state.essence -= cost;
   metaDefs[key].buy();
+  pushReward(`🌠 ${metaDefs[key].label} evoluído`);
   render();
 }
 
@@ -415,6 +443,7 @@ function buyAutomation(key) {
   if (state.automation[key] >= def.max || state.gold < cost) return;
   state.gold -= cost;
   state.automation[key]++;
+  pushReward(`🤖 ${automationDefs[key].label} melhorado`);
   render();
 }
 
@@ -423,6 +452,7 @@ function upgradeTalent(key) {
   if (state.talentPoints <= 0 || state.talents[key] >= def.max) return;
   state.talents[key]++;
   state.talentPoints--;
+  pushReward(`🧠 Talento ${talentDefs[key].label} +1`);
   render();
 }
 
@@ -445,12 +475,14 @@ function ascend() {
   }
 
   state.essence += earned;
+  pushReward(`🌌 Ascensão! +${earned} essência`);
   state.gold = 0;
   state.xp = 0;
   state.level = 1;
   state.zone = 1;
   state.enemiesKilled = 0;
   state.missionKills = 0;
+  state.streak = { count: 0, timer: 0 };
   state.missionTarget = 15;
   state.missionReward = 35;
   state.upgrades = { sword: 0, training: 0, crit: 0, miner: 0 };
@@ -475,6 +507,7 @@ function startMinigameCrit() {
   }
 
   state.minigameBuffs.critUntil = Date.now() + 45000;
+  pushReward("🎯 Reflexo perfeito: crítico aumentado");
   document.getElementById("minigameText").textContent = "Sucesso! +10% crítico por 45s.";
   render();
 }
@@ -487,6 +520,7 @@ function startMinigameChest() {
   if (guess === right) {
     state.gold += calcKillGold() * 8;
     state.minigameBuffs.chestUntil = Date.now() + 60000;
+    pushReward("🧰 Baú lendário: jackpot e buff de ouro");
     document.getElementById("minigameText").textContent = "Acertou! +15% ouro por 60s.";
   } else {
     state.gold += calcKillGold() * 1.5;
@@ -724,6 +758,32 @@ function renderRuntime() {
 
   document.getElementById("autoClickerStatus").textContent = state.autoClicker.enabled ? "ON" : "OFF";
   document.getElementById("autoClickerSpeed").textContent = state.autoClicker.cps;
+
+  const xpNeed = xpToNextLevel();
+  const xpPct = clamp((state.xp / Math.max(1, xpNeed)) * 100, 0, 100);
+  document.getElementById("xpBar").style.width = `${xpPct}%`;
+  document.getElementById("xpPct").textContent = `${xpPct.toFixed(0)}%`;
+
+  const missionPct = clamp((state.missionKills / Math.max(1, state.missionTarget)) * 100, 0, 100);
+  document.getElementById("missionBar").style.width = `${missionPct}%`;
+  document.getElementById("missionPct").textContent = `${missionPct.toFixed(0)}%`;
+
+  document.getElementById("killStreak").textContent = `x${Math.max(1, state.streak.count)}`;
+  document.getElementById("streakBonus").textContent = `+${((streakBonusMultiplier()-1)*100).toFixed(1)}%`;
+  document.getElementById("classAura").textContent = state.buildClass;
+
+  const classMap = { Guerreiro: "classWarrior", Ladino: "classRogue", Mago: "classMage" };
+  ["classWarrior", "classRogue", "classMage"].forEach((id) => document.getElementById(id).classList.remove("class-active"));
+  if (classMap[state.buildClass]) document.getElementById(classMap[state.buildClass]).classList.add("class-active");
+
+  const feed = document.getElementById("rewardFeed");
+  feed.innerHTML = "";
+  state.rewardFeed.forEach((entry) => {
+    const el = document.createElement("div");
+    el.className = "reward-entry";
+    el.textContent = entry.text;
+    feed.appendChild(el);
+  });
 }
 
 function renderInteractivePanels() {
@@ -759,6 +819,10 @@ function tick() {
   runAutoClicker(dt);
   damageEnemy(autoDps() * dt);
   decayPet(dt);
+  if (state.streak.timer > 0) {
+    state.streak.timer = Math.max(0, state.streak.timer - dt);
+    if (state.streak.timer === 0) state.streak.count = 0;
+  }
   renderRuntime();
 
   if (now - state.ui.lastFullRenderAt > BALANCE.fullRenderIntervalMs) {
@@ -810,6 +874,7 @@ function init() {
   state.lastTick = Date.now();
 
   bind();
+  if (state.rewardFeed.length === 0) pushReward("Bem-vindo herói! Derrote monstros para iniciar sua lenda.");
   render();
 
   setInterval(tick, BALANCE.autoTickMs);
