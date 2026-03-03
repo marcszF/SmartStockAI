@@ -10,7 +10,7 @@
   <main class="layout">
     <section class="panel hero">
       <h1>⚔️ RPG Infinity Clicker</h1>
-      <p>Derrote monstros, evolua e ascenda infinitamente.</p>
+      <p>Derrote monstros, evolua, automatize e ascenda infinitamente.</p>
 
       <div class="stats-grid">
         <div><span>Ouro</span><strong id="gold">0</strong></div>
@@ -34,6 +34,10 @@
             <small>DPS automático</small>
             <strong id="autoDps">0</strong>
           </div>
+          <div>
+            <small>Crítico</small>
+            <strong id="critChance">0%</strong>
+          </div>
         </div>
       </div>
 
@@ -45,11 +49,45 @@
     </section>
 
     <section class="panel upgrades">
+      <h2>🧭 Build</h2>
+      <div class="build-box">
+        <p>Classe: <strong id="buildClass">Aventureiro</strong></p>
+        <p>Pontos de talento: <strong id="talentPoints">0</strong></p>
+        <div class="actions">
+          <button id="classWarrior">Guerreiro</button>
+          <button id="classRogue">Ladino</button>
+          <button id="classMage">Mago</button>
+        </div>
+      </div>
+      <div id="talentList" class="upgrade-list"></div>
+
+      <h2>🤖 Automação Progressiva</h2>
+      <div id="automationList" class="upgrade-list"></div>
+
       <h2>🛠️ Upgrades</h2>
       <div id="upgradeList" class="upgrade-list"></div>
 
       <h2>🌌 Meta Upgrades (Essência)</h2>
       <div id="metaList" class="upgrade-list"></div>
+
+      <h2>🎮 Minigames</h2>
+      <div class="mini-grid">
+        <button id="miniCritBtn">Reflexo Crítico</button>
+        <button id="miniChestBtn">Caça ao Baú</button>
+      </div>
+      <p id="minigameText">Complete minigames para bônus temporários (balanceados).</p>
+
+      <h2>🐾 Pet Arcano (Tamagotchi)</h2>
+      <div class="pet-card">
+        <p><strong id="petName">Poring</strong> — Nível <span id="petLevel">1</span></p>
+        <p>Fome: <span id="petHunger">100</span> | Humor: <span id="petMood">100</span> | Energia: <span id="petEnergy">100</span></p>
+        <p>Bônus atual: <span id="petBonus">Nenhum</span></p>
+        <div class="actions">
+          <button id="petFeedBtn">Alimentar (-25 ouro)</button>
+          <button id="petPlayBtn">Brincar (-20 ouro)</button>
+          <button id="petRestBtn">Descansar</button>
+        </div>
+      </div>
 
       <h2>📜 Missão do momento</h2>
       <p id="missionText">-</p>

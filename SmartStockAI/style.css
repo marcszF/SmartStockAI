@@ -4,9 +4,7 @@
   --panel-2: #21283a;
   --text: #f5f7ff;
   --muted: #a6b0cc;
-  --accent: #76e4f7;
   --good: #7df58f;
-  --danger: #ff6e7a;
 }
 
 * { box-sizing: border-box; }
@@ -19,11 +17,11 @@ body {
 }
 
 .layout {
-  width: min(1200px, 95vw);
+  width: min(1250px, 95vw);
   margin: 1.25rem auto;
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.05fr 0.95fr;
 }
 
 .panel {
@@ -48,9 +46,9 @@ body {
 }
 
 .stats-grid span { display: block; color: var(--muted); font-size: .8rem; }
-.stats-grid strong { font-size: 1.15rem; }
+.stats-grid strong { font-size: 1.1rem; }
 
-.combat-card {
+.combat-card, .build-box, .pet-card {
   margin-top: 1rem;
   background: #111726;
   border: 1px solid #2f3a58;
@@ -82,12 +80,11 @@ button {
   font-weight: 650;
   cursor: pointer;
 }
-
 button:hover { filter: brightness(1.1); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 
-.dmg-row { display: flex; gap: .9rem; align-items: center; margin-top: .9rem; }
-.actions { display: flex; gap: .55rem; margin-top: 1rem; flex-wrap: wrap; }
+.dmg-row { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; margin-top: .9rem; }
+.actions { display: flex; gap: .55rem; margin-top: .8rem; flex-wrap: wrap; }
 .danger { border-color: #80303b; background: #4a1f2b; }
 
 .upgrade-list { display: grid; gap: .5rem; }
@@ -101,11 +98,13 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   border-radius: 10px;
   padding: .65rem;
 }
-
 .up-item small { display: block; color: var(--muted); }
 .up-item .lvl { color: var(--good); font-size: .8rem; }
 
-@media (max-width: 900px) {
+.mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+
+@media (max-width: 980px) {
   .layout { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(90px, 1fr)); }
+  .mini-grid { grid-template-columns: 1fr; }
 }
