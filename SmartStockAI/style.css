@@ -6,105 +6,39 @@
   --muted: #a6b0cc;
   --good: #7df58f;
 }
-
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   background: radial-gradient(circle at top, #1b2130, var(--bg));
   color: var(--text);
 }
-
-.layout {
-  width: min(1250px, 95vw);
-  margin: 1.25rem auto;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 1.05fr 0.95fr;
-}
-
-.panel {
-  background: linear-gradient(180deg, var(--panel), var(--panel-2));
-  border: 1px solid #2c3652;
-  border-radius: 14px;
-  padding: 1rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr));
-  gap: .6rem;
-  margin: 1rem 0;
-}
-
-.stats-grid div {
-  background: #121726;
-  border: 1px solid #2a3350;
-  border-radius: 10px;
-  padding: .65rem;
-}
-
+.layout { width: min(1280px, 95vw); margin: 1.2rem auto; display: grid; gap: 1rem; grid-template-columns: 1.03fr 0.97fr; }
+.panel { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid #2c3652; border-radius: 14px; padding: 1rem; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: .6rem; margin: 1rem 0; }
+.stats-grid div { background: #121726; border: 1px solid #2a3350; border-radius: 10px; padding: .65rem; }
 .stats-grid span { display: block; color: var(--muted); font-size: .8rem; }
-.stats-grid strong { font-size: 1.1rem; }
-
-.combat-card, .build-box, .pet-card {
-  margin-top: 1rem;
-  background: #111726;
-  border: 1px solid #2f3a58;
-  border-radius: 12px;
-  padding: 1rem;
+.stats-grid strong { font-size: 1.05rem; }
+.combat-card, .build-box, .pet-card { margin-top: 1rem; background: #111726; border: 1px solid #2f3a58; border-radius: 12px; padding: 1rem; }
+.bar { width: 100%; height: 14px; background: #283149; border-radius: 999px; overflow: hidden; }
+#enemyHpBar { height: 100%; width: 100%; background: linear-gradient(90deg, #f857a6, #ff5858); transition: width .18s ease; }
+button, select {
+  border: 1px solid #2f4773; color: var(--text); background: #1d2a44; border-radius: 10px; padding: .52rem .75rem; font-weight: 640;
 }
-
-.bar {
-  width: 100%;
-  height: 14px;
-  background: #283149;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-#enemyHpBar {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #f857a6, #ff5858);
-  transition: width .18s ease;
-}
-
-button {
-  border: 1px solid #2f4773;
-  color: var(--text);
-  background: #1d2a44;
-  border-radius: 10px;
-  padding: .55rem .8rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-button:hover { filter: brightness(1.1); }
+button { cursor: pointer; }
+button:hover { filter: brightness(1.09); }
 button:disabled { opacity: .5; cursor: not-allowed; }
-
-.dmg-row { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; margin-top: .9rem; }
-.actions { display: flex; gap: .55rem; margin-top: .8rem; flex-wrap: wrap; }
+.dmg-row { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; margin-top: .85rem; }
+.actions { display: flex; gap: .55rem; margin-top: .7rem; flex-wrap: wrap; }
 .danger { border-color: #80303b; background: #4a1f2b; }
-
 .upgrade-list { display: grid; gap: .5rem; }
-.up-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: .6rem;
-  align-items: center;
-  background: #131a2b;
-  border: 1px solid #2a3658;
-  border-radius: 10px;
-  padding: .65rem;
-}
+.up-item { display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: center; background: #131a2b; border: 1px solid #2a3658; border-radius: 10px; padding: .65rem; }
 .up-item small { display: block; color: var(--muted); }
 .up-item .lvl { color: var(--good); font-size: .8rem; }
-
 .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-
+.mix-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: .5rem; margin-bottom: .8rem; }
 @media (max-width: 980px) {
   .layout { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(90px, 1fr)); }
-  .mini-grid { grid-template-columns: 1fr; }
+  .mini-grid, .mix-row { grid-template-columns: 1fr; }
 }
