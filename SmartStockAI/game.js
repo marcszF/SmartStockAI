@@ -22,8 +22,11 @@ const BALANCE = {
   visibleSkills: 24,
   rerollEssenceCost: 3,
   skillMixGoldCost: 120,
+  autoClickerMinCps: 1,
+  autoClickerMaxCps: 30,
   autoTickMs: 100,
-  saveTickMs: 4000
+  saveTickMs: 4000,
+  fullRenderIntervalMs: 900
 };
 
 const baseState = {
@@ -45,8 +48,10 @@ const baseState = {
   automation: { autoBuyer: 0, autoClimber: 0, lootDrone: 0 },
   pet: { name: "Poring", level: 1, xp: 0, hunger: 100, mood: 100, energy: 100 },
   minigameBuffs: { critUntil: 0, chestUntil: 0 },
+  autoClicker: { enabled: false, cps: 6, acc: 0 },
   skills: { runSeed: 0, rerolls: 0, deck: [], learned: [], equipped: [] },
   enemy: { name: "", hp: 10, maxHp: 10 },
+  ui: { lastFullRenderAt: 0 },
   lastTick: Date.now()
 };
 
@@ -515,6 +520,34 @@ function decayPet(dt) {
   state.pet.energy = Math.max(0, state.pet.energy - 0.6 * dt);
 }
 
+function runAutoClicker(dt) {
+  if (!state.autoClicker.enabled) return;
+
+  state.autoClicker.acc += state.autoClicker.cps * dt;
+  const clicks = Math.floor(state.autoClicker.acc);
+  if (clicks <= 0) return;
+
+  state.autoClicker.acc -= clicks;
+
+  for (let i = 0; i < clicks; i++) {
+    damageEnemy(clickDamage() * critMultiplier());
+  }
+}
+
+function toggleAutoClicker() {
+  state.autoClicker.enabled = !state.autoClicker.enabled;
+  renderRuntime();
+}
+
+function updateAutoClickerSpeed(delta) {
+  state.autoClicker.cps = clamp(
+    state.autoClicker.cps + delta,
+    BALANCE.autoClickerMinCps,
+    BALANCE.autoClickerMaxCps
+  );
+  renderRuntime();
+}
+
 function mergeDefaults(target, defaults) {
   Object.entries(defaults).forEach(([k, v]) => {
     if (v && typeof v === "object" && !Array.isArray(v)) {
@@ -656,7 +689,7 @@ function renderSkills() {
   });
 }
 
-function render() {
+function renderRuntime() {
   document.getElementById("gold").textContent = fmt(state.gold);
   document.getElementById("xp").textContent = `${fmt(state.xp)} / ${fmt(xpToNextLevel())}`;
   document.getElementById("level").textContent = state.level;
@@ -689,6 +722,11 @@ function render() {
   document.getElementById("petEnergy").textContent = Math.floor(state.pet.energy);
   document.getElementById("petBonus").textContent = `x${petPowerFactor().toFixed(2)} poder global`;
 
+  document.getElementById("autoClickerStatus").textContent = state.autoClicker.enabled ? "ON" : "OFF";
+  document.getElementById("autoClickerSpeed").textContent = state.autoClicker.cps;
+}
+
+function renderInteractivePanels() {
   renderCard(document.getElementById("upgradeList"), Object.entries(upgradeDefs), (k) => state.upgrades[k], upgradeCost, buyUpgrade, "ouro", () => state.gold);
   renderCard(document.getElementById("metaList"), Object.entries(metaDefs), (k) => state.meta[k], metaCost, buyMeta, "essência", () => state.essence);
   renderCard(document.getElementById("automationList"), Object.entries(automationDefs), (k) => state.automation[k], automationCost, buyAutomation, "ouro", () => state.gold);
@@ -704,6 +742,12 @@ function render() {
   );
 
   renderSkills();
+  state.ui.lastFullRenderAt = Date.now();
+}
+
+function render() {
+  renderRuntime();
+  renderInteractivePanels();
 }
 
 function tick() {
@@ -712,9 +756,14 @@ function tick() {
   state.lastTick = now;
 
   runAutomation(dt);
+  runAutoClicker(dt);
   damageEnemy(autoDps() * dt);
   decayPet(dt);
-  render();
+  renderRuntime();
+
+  if (now - state.ui.lastFullRenderAt > BALANCE.fullRenderIntervalMs) {
+    renderInteractivePanels();
+  }
 }
 
 function bind() {
@@ -726,6 +775,9 @@ function bind() {
   document.getElementById("nextZoneBtn").addEventListener("click", nextZone);
   document.getElementById("ascendBtn").addEventListener("click", ascend);
   document.getElementById("resetBtn").addEventListener("click", resetSave);
+  document.getElementById("autoClickerToggle").addEventListener("click", toggleAutoClicker);
+  document.getElementById("autoClickerSlower").addEventListener("click", () => updateAutoClickerSpeed(-1));
+  document.getElementById("autoClickerFaster").addEventListener("click", () => updateAutoClickerSpeed(1));
 
   document.getElementById("classWarrior").addEventListener("click", () => chooseClass("Guerreiro"));
   document.getElementById("classRogue").addEventListener("click", () => chooseClass("Ladino"));
