@@ -15,6 +15,23 @@ const SKILL_EFFECTS = [
   { key: "missionMul", min: 0.06, max: 0.22, tag: "Contrato" }
 ];
 
+const DUNGEON_ROOM_TYPES = ["battle","treasure","shrine","trap","elite","merchant"];
+
+const RELIC_POOL = [
+  { name: "Anel do Carniceiro", effect: "clickMul", value: 0.12 },
+  { name: "Totem do Eco", effect: "dpsMul", value: 0.14 },
+  { name: "Olho de Corvo", effect: "critFlat", value: 0.03 },
+  { name: "Bolsa Dourada", effect: "goldMul", value: 0.12 },
+  { name: "Coleira Arcana", effect: "petMul", value: 0.1 }
+];
+
+const CURSE_POOL = [
+  { name: "Fraqueza", effect: "clickMul", value: -0.1 },
+  { name: "Lentidão", effect: "dpsMul", value: -0.1 },
+  { name: "Mão Vazia", effect: "goldMul", value: -0.12 },
+  { name: "Azar", effect: "critFlat", value: -0.02 }
+];
+
 const BALANCE = {
   maxEquippedSkills: 4,
   maxCritChance: 0.65,
@@ -51,6 +68,17 @@ const baseState = {
   minigameBuffs: { critUntil: 0, chestUntil: 0 },
   streak: { count: 0, timer: 0 },
   rewardFeed: [],
+  dungeon: {
+    floor: 1,
+    heroHp: 100,
+    heroMaxHp: 100,
+    souls: 0,
+    options: [],
+    resolved: false,
+    log: "Escolha uma porta para receber um evento.",
+    relics: [],
+    curses: []
+  },
   autoClicker: { enabled: false, cps: 6, acc: 0 },
   skills: { runSeed: 0, rerolls: 0, deck: [], learned: [], equipped: [] },
   enemy: { name: "", hp: 10, maxHp: 10 },
@@ -208,6 +236,110 @@ function streakBonusMultiplier() {
   return 1 + Math.min(0.45, state.streak.count * 0.015);
 }
 
+function randomChoice(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function dungeonModifiers() {
+  const out = { clickMul: 0, dpsMul: 0, critFlat: 0, goldMul: 0, petMul: 0 };
+  state.dungeon.relics.forEach((r) => { out[r.effect] = (out[r.effect] || 0) + r.value; });
+  state.dungeon.curses.forEach((c) => { out[c.effect] = (out[c.effect] || 0) + c.value; });
+  return out;
+}
+
+function rollDungeonOptions() {
+  state.dungeon.options = [0,1,2].map(() => randomChoice(DUNGEON_ROOM_TYPES));
+  state.dungeon.resolved = false;
+}
+
+function applyHeroDamage(amount) {
+  state.dungeon.heroHp = Math.max(0, state.dungeon.heroHp - amount);
+  if (state.dungeon.heroHp > 0) return;
+
+  pushReward("☠️ Você tombou na masmorra e perdeu recursos.");
+  state.gold *= 0.75;
+  state.zone = Math.max(1, state.zone - 3);
+  state.dungeon.floor = Math.max(1, state.dungeon.floor - 2);
+  state.dungeon.heroHp = state.dungeon.heroMaxHp;
+  if (state.dungeon.relics.length > 0) state.dungeon.relics.pop();
+}
+
+function grantRelic() {
+  const relic = { ...randomChoice(RELIC_POOL), id: `r_${Date.now()}_${Math.random()}` };
+  state.dungeon.relics.push(relic);
+  pushReward(`🧿 Relíquia obtida: ${relic.name}`);
+}
+
+function grantCurse() {
+  const curse = { ...randomChoice(CURSE_POOL), id: `c_${Date.now()}_${Math.random()}` };
+  state.dungeon.curses.push(curse);
+  pushReward(`🕸️ Maldição recebida: ${curse.name}`);
+}
+
+function resolveDungeonRoom(type) {
+  if (state.dungeon.resolved) return;
+
+  const zGold = calcKillGold();
+  const zXp = calcKillXp();
+
+  if (type === "battle") {
+    state.gold += zGold * 6;
+    state.xp += zXp * 4;
+    state.enemiesKilled += 2;
+    state.dungeon.souls += 1;
+    state.dungeon.log = "Sala de batalha: saque e almas coletadas.";
+  } else if (type === "treasure") {
+    state.gold += zGold * 10;
+    if (Math.random() < 0.45) grantRelic();
+    state.dungeon.log = "Tesouro encontrado: muito ouro.";
+  } else if (type === "shrine") {
+    state.talentPoints += 1;
+    if (Math.random() < 0.35) state.skillPoints += 1;
+    state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 20);
+    state.dungeon.log = "Santuário: bênção de poder e cura.";
+  } else if (type === "trap") {
+    applyHeroDamage(state.dungeon.heroMaxHp * 0.18);
+    state.gold += zGold * 2;
+    if (Math.random() < 0.5) grantCurse();
+    state.dungeon.log = "Armadilha! Você sobreviveu e pegou restos.";
+  } else if (type === "elite") {
+    state.zone += 1;
+    state.essence += 1 + Math.floor(state.zone / 20);
+    applyHeroDamage(state.dungeon.heroMaxHp * 0.12);
+    grantRelic();
+    state.dungeon.souls += 2;
+    state.dungeon.log = "Elite derrotado: essência e relíquia!";
+  } else if (type === "merchant") {
+    if (state.gold >= 220) {
+      state.gold -= 220;
+      grantRelic();
+      state.dungeon.log = "Mercador: comprou uma relíquia rara.";
+    } else {
+      state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 25);
+      state.dungeon.log = "Mercador: sem ouro, recebeu cuidados básicos.";
+    }
+  }
+
+  gainLevelIfNeeded();
+  state.dungeon.resolved = true;
+}
+
+function chooseDungeonDoor(index) {
+  const type = state.dungeon.options[index];
+  if (!type) return;
+  resolveDungeonRoom(type);
+  render();
+}
+
+function nextDungeonRoom() {
+  if (!state.dungeon.resolved) return;
+  state.dungeon.floor += 1;
+  if (state.dungeon.floor % 5 === 0) state.dungeon.heroMaxHp += 8;
+  state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 6);
+  rollDungeonOptions();
+  render();
+}
+
 function calcEnemyMaxHp() {
   const z = state.zone;
   return Math.floor((10 * Math.pow(1.28, z - 1) + z * 4) * (1 + Math.max(0, z - 40) * 0.006));
@@ -215,12 +347,13 @@ function calcEnemyMaxHp() {
 
 function calcKillGold() {
   const sk = activeSkillMods();
+  const dg = dungeonModifiers();
   const base = 6 * Math.pow(1.22, state.zone - 1);
   const minerBonus = 1 + state.upgrades.miner * 0.08;
   const metaBonus = 1 + state.meta.economy * 0.12;
   const petBonus = (1 + Math.max(0, state.pet.level - 1) * 0.02) * (1 + sk.petMul);
   const chestBuff = Date.now() < state.minigameBuffs.chestUntil ? 1.15 : 1;
-  return base * minerBonus * metaBonus * petBonus * chestBuff * (1 + sk.goldMul) * streakBonusMultiplier();
+  return base * minerBonus * metaBonus * petBonus * chestBuff * (1 + sk.goldMul + (dg.goldMul || 0)) * streakBonusMultiplier();
 }
 
 function calcKillXp() {
@@ -230,28 +363,31 @@ function calcKillXp() {
 function clickDamage() {
   const cls = classMod();
   const sk = activeSkillMods();
+  const dg = dungeonModifiers();
   const base = 1 + state.upgrades.sword;
   const levelMul = 1 + (state.level - 1) * 0.02;
   const metaMul = 1 + state.meta.power * 0.1;
   const talentMul = 1 + state.talents.fury * 0.06;
-  return base * levelMul * metaMul * talentMul * cls.click * petPowerFactor() * (1 + sk.clickMul);
+  return base * levelMul * metaMul * talentMul * cls.click * petPowerFactor() * (1 + sk.clickMul + (dg.clickMul || 0));
 }
 
 function autoDps() {
   const cls = classMod();
   const sk = activeSkillMods();
+  const dg = dungeonModifiers();
   const base = state.upgrades.training * 0.8;
   const levelMul = 1 + (state.level - 1) * 0.02;
   const metaMul = 1 + state.meta.power * 0.1;
   const talentMul = 1 + state.talents.flow * 0.05;
-  return base * levelMul * metaMul * talentMul * cls.dps * petPowerFactor() * (1 + sk.dpsMul);
+  return base * levelMul * metaMul * talentMul * cls.dps * petPowerFactor() * (1 + sk.dpsMul + (dg.dpsMul || 0));
 }
 
 function critChance() {
   const cls = classMod();
   const sk = activeSkillMods();
+  const dg = dungeonModifiers();
   const minigameBuff = Date.now() < state.minigameBuffs.critUntil ? 0.1 : 0;
-  const base = state.upgrades.crit * 0.02 + state.talents.precision * 0.015 + minigameBuff + sk.critFlat;
+  const base = state.upgrades.crit * 0.02 + state.talents.precision * 0.015 + minigameBuff + sk.critFlat + (dg.critFlat || 0);
   return clamp(base * cls.crit, 0, BALANCE.maxCritChance);
 }
 
@@ -776,6 +912,25 @@ function renderRuntime() {
   ["classWarrior", "classRogue", "classMage"].forEach((id) => document.getElementById(id).classList.remove("class-active"));
   if (classMap[state.buildClass]) document.getElementById(classMap[state.buildClass]).classList.add("class-active");
 
+  document.getElementById("dungeonFloor").textContent = state.dungeon.floor;
+  document.getElementById("heroHp").textContent = Math.floor(state.dungeon.heroHp);
+  document.getElementById("heroMaxHp").textContent = Math.floor(state.dungeon.heroMaxHp);
+  document.getElementById("dungeonSouls").textContent = state.dungeon.souls;
+  const hpPctHero = clamp((state.dungeon.heroHp / Math.max(1, state.dungeon.heroMaxHp)) * 100, 0, 100);
+  document.getElementById("heroHpBar").style.width = `${hpPctHero}%`;
+  document.getElementById("dungeonLog").textContent = state.dungeon.log;
+  document.getElementById("relicList").textContent = state.dungeon.relics.length ? state.dungeon.relics.map(r => r.name).join(" • ") : "-";
+  document.getElementById("curseList").textContent = state.dungeon.curses.length ? state.dungeon.curses.map(c => c.name).join(" • ") : "-";
+
+  state.dungeon.options.forEach((opt, i) => {
+    const btn = document.getElementById(`roomBtn${i}`);
+    if (!btn) return;
+    const map = { battle: "⚔️ Batalha", treasure: "💰 Tesouro", shrine: "✨ Santuário", trap: "🪤 Armadilha", elite: "👹 Elite", merchant: "🧿 Mercador" };
+    btn.textContent = map[opt] || "Porta";
+    btn.disabled = state.dungeon.resolved;
+  });
+  document.getElementById("dungeonNextBtn").disabled = !state.dungeon.resolved;
+
   const feed = document.getElementById("rewardFeed");
   feed.innerHTML = "";
   state.rewardFeed.forEach((entry) => {
@@ -859,6 +1014,11 @@ function bind() {
   document.getElementById("petFeedBtn").addEventListener("click", () => carePet("feed"));
   document.getElementById("petPlayBtn").addEventListener("click", () => carePet("play"));
   document.getElementById("petRestBtn").addEventListener("click", () => carePet("rest"));
+
+  document.getElementById("roomBtn0").addEventListener("click", () => chooseDungeonDoor(0));
+  document.getElementById("roomBtn1").addEventListener("click", () => chooseDungeonDoor(1));
+  document.getElementById("roomBtn2").addEventListener("click", () => chooseDungeonDoor(2));
+  document.getElementById("dungeonNextBtn").addEventListener("click", nextDungeonRoom);
 }
 
 function init() {
@@ -869,6 +1029,9 @@ function init() {
   }
   if (!state.enemy.name) {
     spawnEnemy();
+  }
+  if (!state.dungeon.options.length) {
+    rollDungeonOptions();
   }
 
   state.lastTick = Date.now();

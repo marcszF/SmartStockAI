@@ -67,6 +67,22 @@
         <p><strong>💎 Feed de Recompensas</strong></p>
         <div id="rewardFeed" class="reward-feed"></div>
       </article>
+
+      <article class="block dungeon-block">
+        <p><strong>🏰 Masmorra Profunda (inspirada em roguelike)</strong></p>
+        <p class="muted">Andar <span id="dungeonFloor">1</span> • HP Herói <span id="heroHp">100</span>/<span id="heroMaxHp">100</span> • Alma <span id="dungeonSouls">0</span></p>
+        <div class="bar thin"><div id="heroHpBar"></div></div>
+        <div class="dungeon-doors">
+          <button id="roomBtn0" class="door-btn">Porta 1</button>
+          <button id="roomBtn1" class="door-btn">Porta 2</button>
+          <button id="roomBtn2" class="door-btn">Porta 3</button>
+        </div>
+        <button id="dungeonNextBtn">Avançar Sala</button>
+        <p id="dungeonLog" class="muted">Escolha uma porta para receber um evento.</p>
+        <p class="muted">Relíquias: <span id="relicList">-</span></p>
+        <p class="muted">Maldições: <span id="curseList">-</span></p>
+      </article>
+
     </section>
 
     <section class="panel systems-panel">
