@@ -68,6 +68,17 @@ const baseState = {
   minigameBuffs: { critUntil: 0, chestUntil: 0 },
   streak: { count: 0, timer: 0 },
   rewardFeed: [],
+  combat: {
+    heroHp: 120,
+    heroMaxHp: 120,
+    effects: { hot: 0, hotPower: 0 },
+    spellCooldowns: {},
+    enemyEffects: { bleed: 0, bleedPower: 0, poison: 0, poisonPower: 0 },
+    equipmentOwned: [],
+    equipped: { weapon: null, armor: null, trinket: null },
+    spellsOwned: [],
+    spellsEquipped: []
+  },
   dungeon: {
     floor: 1,
     heroHp: 100,
@@ -112,6 +123,22 @@ const automationDefs = {
   lootDrone: { label: "Drone de Loot", desc: "Ouro passivo", baseCost: 150, growth: 1.95, max: 10 }
 };
 
+const EQUIPMENT_CATALOG = [
+  { id: "w_iron", slot: "weapon", name: "Espada de Ferro", cost: 120, attrs: { attack: 6, crit: 0.02 }, passive: "+6 ATK" },
+  { id: "w_bleed", slot: "weapon", name: "Lâmina Serrilhada", cost: 420, attrs: { attack: 12, bleedChance: 0.2, dotPower: 1.2 }, passive: "20% aplicar Sangramento" },
+  { id: "a_guard", slot: "armor", name: "Couraça do Guardião", cost: 280, attrs: { armor: 14, hp: 40 }, passive: "+Armadura e HP" },
+  { id: "a_mana", slot: "armor", name: "Manto Arcano", cost: 620, attrs: { armor: 8, manaShield: 0.22, regen: 2.2 }, passive: "Escudo de mana + regen" },
+  { id: "t_venom", slot: "trinket", name: "Ídolo Tóxico", cost: 550, attrs: { poisonChance: 0.22, dotPower: 1.35 }, passive: "Veneno constante" },
+  { id: "t_blood", slot: "trinket", name: "Cálice Rubro", cost: 760, attrs: { lifesteal: 0.06, healOnKill: 14 }, passive: "Roubo de vida + cura" }
+];
+
+const SPELL_CATALOG = [
+  { id: "sp_bleed", name: "Corte Hemorrágico", unlockCost: 180, cooldown: 8, active: { bleed: 4, power: 2.1 }, passive: { bleedChance: 0.1 }, desc: "Bleed forte + passiva de bleed" },
+  { id: "sp_poison", name: "Nuvem Venenosa", unlockCost: 230, cooldown: 10, active: { poison: 6, power: 1.4 }, passive: { poisonChance: 0.12 }, desc: "Poison longo + passiva de poison" },
+  { id: "sp_bulwark", name: "Bastião Arcano", unlockCost: 260, cooldown: 14, active: { instantHeal: 30, hot: 8 }, passive: { manaShield: 0.08, armor: 4 }, desc: "Cura instantânea + cura/s" },
+  { id: "sp_reaper", name: "Marca da Ceifa", unlockCost: 380, cooldown: 12, active: { nuke: 2.6 }, passive: { crit: 0.04, dotPower: 0.2 }, desc: "Explosão + passiva crítica" }
+];
+
 function seededRandom(seed) {
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
@@ -127,6 +154,86 @@ function pickEffect(seed) {
 
 function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
+}
+
+
+
+function ensureCombatCollections() {
+  state.combat.equipmentOwned ||= [];
+  state.combat.equipped ||= { weapon: null, armor: null, trinket: null };
+  state.combat.spellsOwned ||= [];
+  state.combat.spellsEquipped ||= [];
+  state.combat.spellCooldowns ||= {};
+  state.combat.effects ||= { hot: 0, hotPower: 0 };
+  state.combat.enemyEffects ||= { bleed: 0, bleedPower: 0, poison: 0, poisonPower: 0 };
+}
+
+function getEquippedItems() {
+  ensureCombatCollections();
+  return ["weapon", "armor", "trinket"].map((slot) => EQUIPMENT_CATALOG.find((i) => i.id === state.combat.equipped[slot])).filter(Boolean);
+}
+
+function getCombatStats() {
+  const base = { attack: 0, armor: 0, manaShield: 0, crit: 0, dotPower: 1, regen: 0, bleedChance: 0, poisonChance: 0, lifesteal: 0, healOnKill: 0, hp: 0 };
+  getEquippedItems().forEach((it) => Object.entries(it.attrs || {}).forEach(([k, v]) => {
+    if (k === "dotPower") base.dotPower += v - 1;
+    else base[k] = (base[k] || 0) + v;
+  }));
+
+  state.combat.spellsEquipped.map((id) => SPELL_CATALOG.find((s) => s.id === id)).filter(Boolean).forEach((sp) => {
+    Object.entries(sp.passive || {}).forEach(([k, v]) => {
+      if (k === "dotPower") base.dotPower += v;
+      else base[k] = (base[k] || 0) + v;
+    });
+  });
+
+  base.manaShield = clamp(base.manaShield, 0, 0.6);
+  base.crit = clamp(base.crit, 0, 0.3);
+  return base;
+}
+
+function enemyAttackPower() {
+  return 4 + Math.pow(state.zone, 1.15) * 0.7;
+}
+
+function applyDamageToHero(amount) {
+  const st = getCombatStats();
+  const reduced = amount * (1 - st.manaShield);
+  const mitigated = Math.max(1, reduced - st.armor * 0.35);
+  state.combat.heroHp = Math.max(0, state.combat.heroHp - mitigated);
+  if (state.combat.heroHp <= 0) {
+    state.combat.heroHp = state.combat.heroMaxHp;
+    state.gold *= 0.8;
+    state.zone = Math.max(1, state.zone - 2);
+    pushReward("💀 Você caiu em batalha e recuou de zona.");
+    spawnEnemy();
+  }
+}
+
+function applyEffectsTick(dt) {
+  const ef = state.combat.enemyEffects;
+  if (ef.bleed > 0) {
+    damageEnemy(ef.bleedPower * dt);
+    ef.bleed -= dt;
+  }
+  if (ef.poison > 0) {
+    damageEnemy(ef.poisonPower * dt);
+    ef.poison -= dt;
+  }
+
+  const heroEf = state.combat.effects;
+  const st = getCombatStats();
+  if (heroEf.hot > 0) {
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + heroEf.hotPower * dt);
+    heroEf.hot -= dt;
+  }
+  if (st.regen > 0) {
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + st.regen * dt);
+  }
+
+  Object.keys(state.combat.spellCooldowns).forEach((k) => {
+    state.combat.spellCooldowns[k] = Math.max(0, state.combat.spellCooldowns[k] - dt);
+  });
 }
 
 function fmt(num) {
@@ -253,14 +360,14 @@ function rollDungeonOptions() {
 }
 
 function applyHeroDamage(amount) {
-  state.dungeon.heroHp = Math.max(0, state.dungeon.heroHp - amount);
-  if (state.dungeon.heroHp > 0) return;
+  state.combat.heroHp = Math.max(0, state.combat.heroHp - amount);
+  if (state.combat.heroHp > 0) return;
 
   pushReward("☠️ Você tombou na masmorra e perdeu recursos.");
   state.gold *= 0.75;
   state.zone = Math.max(1, state.zone - 3);
   state.dungeon.floor = Math.max(1, state.dungeon.floor - 2);
-  state.dungeon.heroHp = state.dungeon.heroMaxHp;
+  state.combat.heroHp = state.combat.heroMaxHp;
   if (state.dungeon.relics.length > 0) state.dungeon.relics.pop();
 }
 
@@ -295,17 +402,17 @@ function resolveDungeonRoom(type) {
   } else if (type === "shrine") {
     state.talentPoints += 1;
     if (Math.random() < 0.35) state.skillPoints += 1;
-    state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 20);
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + 20);
     state.dungeon.log = "Santuário: bênção de poder e cura.";
   } else if (type === "trap") {
-    applyHeroDamage(state.dungeon.heroMaxHp * 0.18);
+    applyHeroDamage(state.combat.heroMaxHp * 0.18);
     state.gold += zGold * 2;
     if (Math.random() < 0.5) grantCurse();
     state.dungeon.log = "Armadilha! Você sobreviveu e pegou restos.";
   } else if (type === "elite") {
     state.zone += 1;
     state.essence += 1 + Math.floor(state.zone / 20);
-    applyHeroDamage(state.dungeon.heroMaxHp * 0.12);
+    applyHeroDamage(state.combat.heroMaxHp * 0.12);
     grantRelic();
     state.dungeon.souls += 2;
     state.dungeon.log = "Elite derrotado: essência e relíquia!";
@@ -315,7 +422,7 @@ function resolveDungeonRoom(type) {
       grantRelic();
       state.dungeon.log = "Mercador: comprou uma relíquia rara.";
     } else {
-      state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 25);
+      state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + 25);
       state.dungeon.log = "Mercador: sem ouro, recebeu cuidados básicos.";
     }
   }
@@ -334,8 +441,8 @@ function chooseDungeonDoor(index) {
 function nextDungeonRoom() {
   if (!state.dungeon.resolved) return;
   state.dungeon.floor += 1;
-  if (state.dungeon.floor % 5 === 0) state.dungeon.heroMaxHp += 8;
-  state.dungeon.heroHp = Math.min(state.dungeon.heroMaxHp, state.dungeon.heroHp + 6);
+  if (state.dungeon.floor % 5 === 0) state.combat.heroMaxHp += 8;
+  state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + 6);
   rollDungeonOptions();
   render();
 }
@@ -364,7 +471,8 @@ function clickDamage() {
   const cls = classMod();
   const sk = activeSkillMods();
   const dg = dungeonModifiers();
-  const base = 1 + state.upgrades.sword;
+  const cmb = getCombatStats();
+  const base = 1 + state.upgrades.sword + cmb.attack;
   const levelMul = 1 + (state.level - 1) * 0.02;
   const metaMul = 1 + state.meta.power * 0.1;
   const talentMul = 1 + state.talents.fury * 0.06;
@@ -375,7 +483,8 @@ function autoDps() {
   const cls = classMod();
   const sk = activeSkillMods();
   const dg = dungeonModifiers();
-  const base = state.upgrades.training * 0.8;
+  const cmb = getCombatStats();
+  const base = state.upgrades.training * 0.8 + cmb.attack * 0.22;
   const levelMul = 1 + (state.level - 1) * 0.02;
   const metaMul = 1 + state.meta.power * 0.1;
   const talentMul = 1 + state.talents.flow * 0.05;
@@ -387,7 +496,8 @@ function critChance() {
   const sk = activeSkillMods();
   const dg = dungeonModifiers();
   const minigameBuff = Date.now() < state.minigameBuffs.critUntil ? 0.1 : 0;
-  const base = state.upgrades.crit * 0.02 + state.talents.precision * 0.015 + minigameBuff + sk.critFlat + (dg.critFlat || 0);
+  const cmb = getCombatStats();
+  const base = state.upgrades.crit * 0.02 + state.talents.precision * 0.015 + minigameBuff + sk.critFlat + (dg.critFlat || 0) + cmb.crit;
   return clamp(base * cls.crit, 0, BALANCE.maxCritChance);
 }
 
@@ -469,13 +579,34 @@ function onKillEnemy() {
     state.zone++;
   }
 
+  const cmb = getCombatStats();
+  if (cmb.healOnKill) state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + cmb.healOnKill);
   pushReward(`🪙 +${fmt(goldGain)} ouro • +${fmt(xpGain)} XP`);
   spawnEnemy();
 }
 
 function damageEnemy(amount) {
+  if (amount <= 0) return;
+  const cmb = getCombatStats();
   state.enemy.hp -= amount;
-  if (state.enemy.hp <= 0) onKillEnemy();
+
+  if (Math.random() < clamp(cmb.bleedChance, 0, 0.85)) {
+    state.combat.enemyEffects.bleed = Math.max(state.combat.enemyEffects.bleed, 4);
+    state.combat.enemyEffects.bleedPower = Math.max(state.combat.enemyEffects.bleedPower, amount * 0.18 * cmb.dotPower);
+  }
+  if (Math.random() < clamp(cmb.poisonChance, 0, 0.85)) {
+    state.combat.enemyEffects.poison = Math.max(state.combat.enemyEffects.poison, 6);
+    state.combat.enemyEffects.poisonPower = Math.max(state.combat.enemyEffects.poisonPower, amount * 0.12 * cmb.dotPower);
+  }
+
+  if (cmb.lifesteal > 0) {
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + amount * cmb.lifesteal);
+  }
+
+  if (state.enemy.hp <= 0) {
+    state.combat.enemyEffects = { bleed: 0, bleedPower: 0, poison: 0, poisonPower: 0 };
+    onKillEnemy();
+  }
 }
 
 function learnSkill(id) {
@@ -533,6 +664,87 @@ function mixSkills() {
   state.skills.deck.push(mixedSkill);
   state.skills.learned.push(mixedSkill.id);
   pushReward("🧪 Skill híbrida criada!");
+  render();
+}
+
+
+
+function buyEquipment(itemId) {
+  ensureCombatCollections();
+  if (state.combat.equipmentOwned.includes(itemId)) return;
+  const item = EQUIPMENT_CATALOG.find((x) => x.id === itemId);
+  if (!item || state.gold < item.cost) return;
+  state.gold -= item.cost;
+  state.combat.equipmentOwned.push(itemId);
+  pushReward(`🛡️ Item comprado: ${item.name}`);
+  render();
+}
+
+function equipEquipment(itemId) {
+  const item = EQUIPMENT_CATALOG.find((x) => x.id === itemId);
+  if (!item || !state.combat.equipmentOwned.includes(itemId)) return;
+  state.combat.equipped[item.slot] = itemId;
+  if (item.attrs.hp) {
+    state.combat.heroMaxHp = 120 + getCombatStats().hp;
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + item.attrs.hp * 0.5);
+  }
+  pushReward(`⚙️ Equipado: ${item.name}`);
+  render();
+}
+
+function unlockSpell(spellId) {
+  ensureCombatCollections();
+  if (state.combat.spellsOwned.includes(spellId)) return;
+  const spell = SPELL_CATALOG.find((x) => x.id === spellId);
+  if (!spell || state.gold < spell.unlockCost) return;
+  state.gold -= spell.unlockCost;
+  state.combat.spellsOwned.push(spellId);
+  state.combat.spellCooldowns[spellId] = 0;
+  pushReward(`📜 Magia aprendida: ${spell.name}`);
+  render();
+}
+
+function toggleEquipSpell(spellId) {
+  const idx = state.combat.spellsEquipped.indexOf(spellId);
+  if (idx >= 0) {
+    state.combat.spellsEquipped.splice(idx, 1);
+    render();
+    return;
+  }
+  if (!state.combat.spellsOwned.includes(spellId) || state.combat.spellsEquipped.length >= 2) return;
+  state.combat.spellsEquipped.push(spellId);
+  render();
+}
+
+function castEquippedSpell(slotIndex) {
+  const spellId = state.combat.spellsEquipped[slotIndex];
+  if (!spellId) return;
+  const spell = SPELL_CATALOG.find((s) => s.id === spellId);
+  if (!spell) return;
+  if ((state.combat.spellCooldowns[spellId] || 0) > 0) return;
+
+  const powerMul = 1 + state.level * 0.015;
+  if (spell.active.bleed) {
+    state.combat.enemyEffects.bleed = Math.max(state.combat.enemyEffects.bleed, spell.active.bleed);
+    state.combat.enemyEffects.bleedPower = Math.max(state.combat.enemyEffects.bleedPower, clickDamage() * 0.2 * spell.active.power * powerMul);
+  }
+  if (spell.active.poison) {
+    state.combat.enemyEffects.poison = Math.max(state.combat.enemyEffects.poison, spell.active.poison);
+    state.combat.enemyEffects.poisonPower = Math.max(state.combat.enemyEffects.poisonPower, clickDamage() * 0.12 * spell.active.power * powerMul);
+  }
+  if (spell.active.instantHeal) {
+    state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp + spell.active.instantHeal * powerMul);
+  }
+  if (spell.active.hot) {
+    state.combat.effects.hot = Math.max(state.combat.effects.hot, spell.active.hot);
+    state.combat.effects.hotPower = Math.max(state.combat.effects.hotPower, 3.4 * powerMul);
+  }
+  if (spell.active.nuke) {
+    damageEnemy(clickDamage() * spell.active.nuke * powerMul);
+  }
+
+  state.combat.spellCooldowns[spellId] = spell.cooldown;
+  pushReward(`✨ ${spell.name} conjurada`);
   render();
 }
 
@@ -859,6 +1071,58 @@ function renderSkills() {
   });
 }
 
+
+
+function renderEquipmentAndSpells() {
+  const eqRoot = document.getElementById("equipmentList");
+  eqRoot.innerHTML = "";
+
+  EQUIPMENT_CATALOG.forEach((item) => {
+    const owned = state.combat.equipmentOwned.includes(item.id);
+    const equipped = state.combat.equipped[item.slot] === item.id;
+    const card = document.createElement("div");
+    card.className = "item";
+    card.innerHTML = `
+      <div>
+        <strong>${item.name}</strong>
+        <small>${item.passive}</small>
+        <small class="tag">Slot: ${item.slot} • ${Object.entries(item.attrs).map(([k,v]) => `${k}+${typeof v === "number" ? (v<1? (v*100).toFixed(0)+"%" : v.toFixed(1)) : v}`).join(" | ")}</small>
+      </div>
+      <button ${owned ? "" : (state.gold < item.cost ? "disabled" : "")}>${owned ? (equipped ? "Equipado" : "Equipar") : `${fmt(item.cost)} ouro`}</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => owned ? equipEquipment(item.id) : buyEquipment(item.id));
+    eqRoot.appendChild(card);
+  });
+
+  const spRoot = document.getElementById("spellList");
+  spRoot.innerHTML = "";
+  SPELL_CATALOG.forEach((spell) => {
+    const owned = state.combat.spellsOwned.includes(spell.id);
+    const equipped = state.combat.spellsEquipped.includes(spell.id);
+    const cd = state.combat.spellCooldowns[spell.id] || 0;
+    const card = document.createElement("div");
+    card.className = `item ${owned && equipped ? "spell-ready" : ""}`;
+    card.innerHTML = `
+      <div>
+        <strong>${spell.name}</strong>
+        <small>${spell.desc}</small>
+        <small class="tag">CD ${spell.cooldown}s • ${owned ? `recarga: ${cd.toFixed(1)}s` : `custo: ${fmt(spell.unlockCost)} ouro`}</small>
+      </div>
+      <button ${owned ? "" : (state.gold < spell.unlockCost ? "disabled" : "")}>${owned ? (equipped ? "Desequipar" : "Equipar") : "Aprender"}</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => owned ? toggleEquipSpell(spell.id) : unlockSpell(spell.id));
+    spRoot.appendChild(card);
+  });
+
+  document.getElementById("spellSlotsInfo").textContent = `${state.combat.spellsEquipped.length}/2`;
+  ["weapon", "armor", "trinket"].forEach((slot) => {
+    const id = state.combat.equipped[slot];
+    const item = EQUIPMENT_CATALOG.find((x) => x.id === id);
+    const map = { weapon: "eqWeapon", armor: "eqArmor", trinket: "eqTrinket" };
+    document.getElementById(map[slot]).textContent = item ? item.name : "-";
+  });
+}
+
 function renderRuntime() {
   document.getElementById("gold").textContent = fmt(state.gold);
   document.getElementById("xp").textContent = `${fmt(state.xp)} / ${fmt(xpToNextLevel())}`;
@@ -908,15 +1172,23 @@ function renderRuntime() {
   document.getElementById("streakBonus").textContent = `+${((streakBonusMultiplier()-1)*100).toFixed(1)}%`;
   document.getElementById("classAura").textContent = state.buildClass;
 
+  state.combat.heroMaxHp = 120 + getCombatStats().hp;
+  state.combat.heroHp = Math.min(state.combat.heroMaxHp, state.combat.heroHp);
+  const cmb = getCombatStats();
+  document.getElementById("statAtk").textContent = fmt(cmb.attack);
+  document.getElementById("statArmor").textContent = fmt(cmb.armor);
+  document.getElementById("statManaShield").textContent = `${(cmb.manaShield * 100).toFixed(0)}%`;
+  document.getElementById("statRegen").textContent = fmt(cmb.regen);
+
   const classMap = { Guerreiro: "classWarrior", Ladino: "classRogue", Mago: "classMage" };
   ["classWarrior", "classRogue", "classMage"].forEach((id) => document.getElementById(id).classList.remove("class-active"));
   if (classMap[state.buildClass]) document.getElementById(classMap[state.buildClass]).classList.add("class-active");
 
   document.getElementById("dungeonFloor").textContent = state.dungeon.floor;
-  document.getElementById("heroHp").textContent = Math.floor(state.dungeon.heroHp);
-  document.getElementById("heroMaxHp").textContent = Math.floor(state.dungeon.heroMaxHp);
+  document.getElementById("heroHp").textContent = Math.floor(state.combat.heroHp);
+  document.getElementById("heroMaxHp").textContent = Math.floor(state.combat.heroMaxHp);
   document.getElementById("dungeonSouls").textContent = state.dungeon.souls;
-  const hpPctHero = clamp((state.dungeon.heroHp / Math.max(1, state.dungeon.heroMaxHp)) * 100, 0, 100);
+  const hpPctHero = clamp((state.combat.heroHp / Math.max(1, state.combat.heroMaxHp)) * 100, 0, 100);
   document.getElementById("heroHpBar").style.width = `${hpPctHero}%`;
   document.getElementById("dungeonLog").textContent = state.dungeon.log;
   document.getElementById("relicList").textContent = state.dungeon.relics.length ? state.dungeon.relics.map(r => r.name).join(" • ") : "-";
@@ -957,6 +1229,7 @@ function renderInteractivePanels() {
   );
 
   renderSkills();
+  renderEquipmentAndSpells();
   state.ui.lastFullRenderAt = Date.now();
 }
 
@@ -973,6 +1246,8 @@ function tick() {
   runAutomation(dt);
   runAutoClicker(dt);
   damageEnemy(autoDps() * dt);
+  applyEffectsTick(dt);
+  applyDamageToHero(enemyAttackPower() * dt * 0.55);
   decayPet(dt);
   if (state.streak.timer > 0) {
     state.streak.timer = Math.max(0, state.streak.timer - dt);
@@ -1019,6 +1294,9 @@ function bind() {
   document.getElementById("roomBtn1").addEventListener("click", () => chooseDungeonDoor(1));
   document.getElementById("roomBtn2").addEventListener("click", () => chooseDungeonDoor(2));
   document.getElementById("dungeonNextBtn").addEventListener("click", nextDungeonRoom);
+
+  document.getElementById("castSpell0").addEventListener("click", () => castEquippedSpell(0));
+  document.getElementById("castSpell1").addEventListener("click", () => castEquippedSpell(1));
 }
 
 function init() {
@@ -1036,6 +1314,7 @@ function init() {
 
   state.lastTick = Date.now();
 
+  ensureCombatCollections();
   bind();
   if (state.rewardFeed.length === 0) pushReward("Bem-vindo herói! Derrote monstros para iniciar sua lenda.");
   render();

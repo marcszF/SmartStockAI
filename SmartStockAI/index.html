@@ -90,12 +90,25 @@
       <article class="block">
         <p>Classe: <strong id="buildClass">Aventureiro</strong></p>
         <p>Talentos: <strong id="talentPoints">0</strong> | Skills: <strong id="skillPoints">0</strong></p>
+        <p class="muted">ATK <span id="statAtk">0</span> • ARM <span id="statArmor">0</span> • Mana Shield <span id="statManaShield">0%</span> • Regen/s <span id="statRegen">0</span></p>
         <div class="actions">
           <button id="classWarrior">Guerreiro</button>
           <button id="classRogue">Ladino</button>
           <button id="classMage">Mago</button>
         </div>
       </article>
+
+      <h3>🛡️ Equipamentos</h3>
+      <p class="muted">Equipado: Arma <span id="eqWeapon">-</span> • Armadura <span id="eqArmor">-</span> • Relíquia <span id="eqTrinket">-</span></p>
+      <div id="equipmentList" class="list"></div>
+
+      <h3>📖 Magias (ativas + passivas)</h3>
+      <p class="muted">Slots equipados: <span id="spellSlotsInfo">0/2</span></p>
+      <div id="spellList" class="list"></div>
+      <div class="actions">
+        <button id="castSpell0">Conjurar Magia 1</button>
+        <button id="castSpell1">Conjurar Magia 2</button>
+      </div>
 
       <h3>🧠 Talentos</h3>
       <div id="talentList" class="list"></div>

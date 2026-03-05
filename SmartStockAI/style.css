@@ -147,6 +147,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 .item small { display: block; color: var(--muted); }
 .item .lvl { color: var(--good); font-size: .82rem; }
+.item .tag { color: #ffd98a; font-size: .78rem; }
+.spell-ready { border-color: #6f7cff; box-shadow: 0 0 0 1px #6f7cff inset; }
 
 .mix-row {
   display: grid;
