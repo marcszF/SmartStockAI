@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG Infinity Clicker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="panel hero-panel">
+      <header class="panel-header">
+        <h1>⚔️ RPG Infinity Clicker</h1>
+        <p>Cada run tem combinações únicas de build, skills e sinergias.</p>
+      </header>
+
+      <div class="stats-grid">
+        <article class="stat-card"><span>Ouro</span><strong id="gold">0</strong></article>
+        <article class="stat-card"><span>XP</span><strong id="xp">0</strong></article>
+        <article class="stat-card"><span>Nível</span><strong id="level">1</strong></article>
+        <article class="stat-card"><span>Essência</span><strong id="essence">0</strong></article>
+      </div>
+
+      <article class="block hud-boost">
+        <div class="hud-row">
+          <div><small>Combo de Kills</small><strong id="killStreak">x1</strong></div>
+          <div><small>Bônus combo</small><strong id="streakBonus">+0%</strong></div>
+          <div><small>Classe ativa</small><strong id="classAura">Aventureiro</strong></div>
+        </div>
+        <div class="meter-label"><span>Progresso de XP</span><span id="xpPct">0%</span></div>
+        <div class="bar thin"><div id="xpBar"></div></div>
+        <div class="meter-label"><span>Progresso da missão</span><span id="missionPct">0%</span></div>
+        <div class="bar thin"><div id="missionBar"></div></div>
+      </article>
+
+      <article class="combat-card">
+        <h2 id="enemyName">Slime Errante</h2>
+        <p>Zona <span id="zone">1</span></p>
+        <div class="bar"><div id="enemyHpBar"></div></div>
+        <p><span id="enemyHp">10</span> / <span id="enemyMaxHp">10</span> HP</p>
+
+        <div class="combat-row">
+          <button id="attackBtn" class="primary">Atacar</button>
+          <div><small>Dano clique</small><strong id="clickDamage">1</strong></div>
+          <div><small>DPS auto</small><strong id="autoDps">0</strong></div>
+          <div><small>Crítico</small><strong id="critChance">0%</strong></div>
+        </div>
+      </article>
+
+      <div class="actions">
+        <button id="nextZoneBtn">Próxima zona</button>
+        <button id="ascendBtn">Ascender</button>
+        <button id="resetBtn" class="danger">Resetar save</button>
+      </div>
+
+      <article class="block auto-clicker">
+        <p><strong>🖱️ Auto Clicker</strong></p>
+        <p class="muted">Status: <span id="autoClickerStatus">OFF</span> • Velocidade: <span id="autoClickerSpeed">6</span> CPS</p>
+        <div class="actions">
+          <button id="autoClickerToggle">Ligar/Desligar</button>
+          <button id="autoClickerSlower">- Velocidade</button>
+          <button id="autoClickerFaster">+ Velocidade</button>
+        </div>
+      </article>
+
+      <article class="block">
+        <p><strong>💎 Feed de Recompensas</strong></p>
+        <div id="rewardFeed" class="reward-feed"></div>
+      </article>
+
+      <article class="block dungeon-block">
+        <p><strong>🏰 Masmorra Profunda (inspirada em roguelike)</strong></p>
+        <p class="muted">Andar <span id="dungeonFloor">1</span> • HP Herói <span id="heroHp">100</span>/<span id="heroMaxHp">100</span> • Alma <span id="dungeonSouls">0</span></p>
+        <div class="bar thin"><div id="heroHpBar"></div></div>
+        <div class="dungeon-doors">
+          <button id="roomBtn0" class="door-btn">Porta 1</button>
+          <button id="roomBtn1" class="door-btn">Porta 2</button>
+          <button id="roomBtn2" class="door-btn">Porta 3</button>
+        </div>
+        <button id="dungeonNextBtn">Avançar Sala</button>
+        <p id="dungeonLog" class="muted">Escolha uma porta para receber um evento.</p>
+        <p class="muted">Relíquias: <span id="relicList">-</span></p>
+        <p class="muted">Maldições: <span id="curseList">-</span></p>
+      </article>
+
+    </section>
+
+    <section class="panel systems-panel">
+      <h2>🧭 Build</h2>
+      <article class="block">
+        <p>Classe: <strong id="buildClass">Aventureiro</strong></p>
+        <p>Talentos: <strong id="talentPoints">0</strong> | Skills: <strong id="skillPoints">0</strong></p>
+        <p class="muted">ATK <span id="statAtk">0</span> • ARM <span id="statArmor">0</span> • Mana Shield <span id="statManaShield">0%</span> • Regen/s <span id="statRegen">0</span></p>
+        <div class="actions">
+          <button id="classWarrior">Guerreiro</button>
+          <button id="classRogue">Ladino</button>
+          <button id="classMage">Mago</button>
+        </div>
+      </article>
+
+      <h3>🛡️ Equipamentos</h3>
+      <p class="muted">Equipado: Arma <span id="eqWeapon">-</span> • Armadura <span id="eqArmor">-</span> • Relíquia <span id="eqTrinket">-</span></p>
+      <div id="equipmentList" class="list"></div>
+
+      <h3>📖 Magias (ativas + passivas)</h3>
+      <p class="muted">Slots equipados: <span id="spellSlotsInfo">0/2</span></p>
+      <div id="spellList" class="list"></div>
+      <div class="actions">
+        <button id="castSpell0">Conjurar Magia 1</button>
+        <button id="castSpell1">Conjurar Magia 2</button>
+      </div>
+
+      <h3>🧠 Talentos</h3>
+      <div id="talentList" class="list"></div>
+
+      <h3>✨ Skills Procedurais</h3>
+      <p class="muted">Seed: <span id="runSeed">-</span> • Equipadas: <span id="equippedCount">0</span>/4</p>
+      <div class="actions">
+        <button id="rerollSkillsBtn">Rerollar deck (-3 essência)</button>
+      </div>
+      <div id="equippedSkills" class="list"></div>
+      <div id="skillList" class="list"></div>
+
+      <h4>🔬 Síntese</h4>
+      <div class="mix-row">
+        <select id="mixA"></select>
+        <select id="mixB"></select>
+        <button id="mixBtn">Misturar (-120 ouro)</button>
+      </div>
+
+      <h3>🤖 Automação</h3>
+      <div id="automationList" class="list"></div>
+
+      <h3>🛠️ Upgrades</h3>
+      <div id="upgradeList" class="list"></div>
+
+      <h3>🌌 Meta</h3>
+      <div id="metaList" class="list"></div>
+
+      <h3>🎮 Minigames</h3>
+      <div class="actions">
+        <button id="miniCritBtn">Reflexo Crítico</button>
+        <button id="miniChestBtn">Caça ao Baú</button>
+      </div>
+      <p id="minigameText" class="muted">Bônus temporários e balanceados.</p>
+
+      <h3>🐾 Pet Arcano</h3>
+      <article class="block">
+        <p><strong id="petName">Poring</strong> — Nível <span id="petLevel">1</span></p>
+        <p>Fome <span id="petHunger">100</span> • Humor <span id="petMood">100</span> • Energia <span id="petEnergy">100</span></p>
+        <p>Bônus <span id="petBonus">Nenhum</span></p>
+        <div class="actions">
+          <button id="petFeedBtn">Alimentar (-25)</button>
+          <button id="petPlayBtn">Brincar (-20)</button>
+          <button id="petRestBtn">Descansar</button>
+        </div>
+      </article>
+
+      <h3>📜 Missão</h3>
+      <p id="missionText" class="muted">-</p>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
